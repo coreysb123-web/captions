@@ -15,11 +15,18 @@ import { TranscriptView, renderSaved } from './view.js';
 import { Session } from './session.js';
 import { MicSource, micSupported, listMicrophones } from './audio.js';
 import { keepAwake } from './wake.js';
-import { ElevenLabsEngine, SERVICE, testKey, usableTerms } from './engines/elevenlabs.js';
+import {
+  ElevenLabsEngine,
+  SERVICE,
+  KEY_PREFIX,
+  testKey,
+  looksLikeKey,
+  usableTerms,
+} from './engines/elevenlabs.js';
 import { DemoEngine, DemoSource } from './engines/demo.js';
 import * as history from './history.js';
 
-const VERSION = '1.0';
+const VERSION = '1.1';
 const SIZES = [20, 24, 28, 32, 38, 44, 52, 60];
 const RESUME_KEY = 'captions.resume';
 
@@ -124,8 +131,8 @@ function showLevel(rms) {
 
 function start() {
   if (!demo && !hasKey()) {
-    notice('This phone is not set up yet', ['It needs a setup code before it can caption real conversations.'], [
-      { label: 'Paste setup code', primary: true, run: pasteSetup },
+    notice('Captions is not set up yet', ['Paste the setup link you were sent, or your ' + SERVICE.name + ' key.'], [
+      { label: 'Paste link or key', primary: true, run: pasteSetup },
       { label: 'Open Setup', run: openSetup },
       { label: 'Not now' },
     ]);
@@ -276,9 +283,10 @@ function renderEmpty() {
   } else {
     el.innerHTML =
       '<h1>Almost ready</h1>' +
-      '<p>This phone needs its setup code before it can caption real conversations.</p>' +
+      '<p>Captions needs setting up before it can caption real conversations. ' +
+      'Paste the setup link you were sent, or your ' + SERVICE.name + ' key.</p>' +
       '<div class="stack">' +
-      '<button class="btn primary" type="button" data-do="paste">Paste setup code</button>' +
+      '<button class="btn primary" type="button" data-do="paste">Paste setup link or key</button>' +
       '<button class="btn" type="button" data-do="demo">See a demonstration</button>' +
       '<button class="btn" type="button" data-do="setup">Enter the settings by hand</button>' +
       '</div>';
@@ -617,6 +625,15 @@ function openSetup() {
 }
 
 function keepSetup() {
+  const typed = $('keyInput').value.trim();
+  if (/setup=/.test(typed) && applySetupCode(typed)) {
+    // A whole setup link was pasted where the key goes: take everything it carries.
+    $('keyInput').value = settings.engineKey;
+    $('termsInput').value = settings.terms;
+    $('langInput').value = settings.language;
+    $('tuningInput').value = settings.tuning;
+    $('keyResult').textContent = 'Setup link applied.';
+  }
   settings.engineKey = $('keyInput').value.trim();
   settings.terms = $('termsInput').value;
   settings.language = $('langInput').value;
@@ -652,7 +669,20 @@ $('keyTest').addEventListener('click', async () => {
   $('keyResult').textContent = result.message;
 });
 
-$('shareSetup').addEventListener('click', async () => {
+// ---- sending the settings to another phone ----------------------------------
+//
+// The link is always written out in the message itself. (Handing a share sheet the
+// link as a separate "url" loses it in some mail apps, which then send only the words.)
+
+function setupMessage(link) {
+  return (
+    'Open this link on the iPhone, in Safari, to set up Captions:\n\n' +
+    link +
+    '\n\nThen tap the Share button and choose "Add to Home Screen".'
+  );
+}
+
+$('shareSetup').addEventListener('click', () => {
   keepSetup();
   if (!hasKey()) {
     $('keyResult').textContent = 'Enter the service key first.';
@@ -660,59 +690,145 @@ $('shareSetup').addEventListener('click', async () => {
     return;
   }
   const link = makeSetupLink();
+  const message = setupMessage(link);
+  $('sendLink').value = link;
+  $('sendEmail').href =
+    'mailto:?subject=' + encodeURIComponent('Captions setup') + '&body=' + encodeURIComponent(message);
+  $('sendText').href = 'sms:?&body=' + encodeURIComponent(message);
+  $('sendText').hidden = !(iOS || /Android/i.test(navigator.userAgent));
+  $('sendShare').hidden = !navigator.share;
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  $('sendResult').textContent = local
+    ? 'This link points at this computer, so it will not work on a phone. Open Captions at its real address and send the link from there.'
+    : '';
+  openSheet('send');
+});
+
+$('sendCopy').addEventListener('click', async () => {
+  const box = $('sendLink');
+  let copied = false;
   try {
-    if (navigator.share) {
-      await navigator.share({ title: 'Captions setup', text: 'Open this on the phone to set up Captions:', url: link });
-    } else {
-      await navigator.clipboard.writeText(link);
-      notice('Setup link copied', [
-        'Paste it into a message to the other phone. Treat it like a password: it contains the service key.',
-      ]);
-    }
+    await navigator.clipboard.writeText(box.value);
+    copied = true;
+  } catch (e) {
+    try {
+      box.focus();
+      box.select();
+      copied = document.execCommand('copy');
+    } catch (e2) {}
+  }
+  $('sendResult').textContent = copied
+    ? 'Copied. Paste it into a message to the other phone.'
+    : 'Could not copy by itself. Press and hold the link above and choose Copy.';
+});
+
+$('sendShare').addEventListener('click', async () => {
+  try {
+    await navigator.share({ title: 'Captions setup', text: setupMessage($('sendLink').value) });
   } catch (e) {}
 });
+
+$('sendLink').addEventListener('focus', () => $('sendLink').select());
+
+// ---- taking in a setup link or a key ----------------------------------------
 
 $('pasteSetup').addEventListener('click', pasteSetup);
 $('showDemo').addEventListener('click', startDemo);
 
+/**
+ * Takes whatever was pasted: a setup link (or its code), or a bare service key.
+ * Returns true if it was recognised (whether or not it turned out to be valid).
+ */
+async function usePasted(raw) {
+  const text = (raw || '').trim();
+  if (!text) return false;
+  if (applySetupCode(text)) {
+    afterSetup();
+    return true;
+  }
+  const key = text.replace(/^["'‘’“”\s]+|["'‘’“”\s]+$/g, '');
+  if (!looksLikeKey(key)) return false;
+
+  // Not one of our setup links, but shaped like a service key: ask the service.
+  notice('Checking the key…', ['One moment.'], []);
+  const result = await testKey(key);
+  closeSheet('notice');
+  if (result.code === 'auth') {
+    notice('That key was not accepted', [
+      SERVICE.name + ' said: “' + result.said + '”',
+      'Make sure the whole key was copied, with nothing added. It is one long word, usually starting with ' + KEY_PREFIX + '.',
+    ]);
+    return true;
+  }
+  settings.engineKey = key;
+  saveSettings();
+  if (result.ok) {
+    afterSetup();
+    return true;
+  }
+  closeAll();
+  renderEmpty();
+  if (result.code === 'quota') {
+    notice('The key is right, but the account has run out', [
+      SERVICE.name + ' said: “' + result.said + '”',
+      'The key is saved. Captions will work once the ' + SERVICE.name + ' account has allowance or credit again.',
+    ]);
+  } else {
+    notice('The key is saved, but could not be checked', [
+      result.message,
+      'Check the internet connection, then tap Start listening.',
+    ]);
+  }
+  return true;
+}
+
 async function pasteSetup() {
   let text = '';
   try {
-    text = await navigator.clipboard.readText();
+    text = (await navigator.clipboard.readText()).trim();
   } catch (e) {}
-  if (text && applySetupCode(text)) {
-    afterSetup();
-    return;
-  }
-  // Could not read the clipboard (or it held something else): offer a box to paste into.
+  // Only act on the clipboard by itself when it plainly holds one of ours or a service
+  // key. Anything else could be private, and checking a key means sending it out.
+  const ours = /setup=[\w-]{16,}/.test(text) || (text.startsWith(KEY_PREFIX) && looksLikeKey(text));
+  if (ours && (await usePasted(text))) return;
+
   const box = document.createElement('textarea');
   box.placeholder = 'Press and hold here, then tap Paste';
   box.setAttribute('autocapitalize', 'off');
   box.setAttribute('autocomplete', 'off');
   box.spellcheck = false;
-  notice('Paste the setup code', ['Copy the code or link you were sent, then paste it into this box.'], [
-    {
-      label: 'Use this code',
-      primary: true,
-      run: () => {
-        if (applySetupCode(box.value)) afterSetup();
-        else notice('That code did not work', ['Make sure the whole code or link was copied, and try again.']);
+  notice(
+    'Paste the setup link or key',
+    ['Copy the setup link you were sent, or your ' + SERVICE.name + ' key, then paste it into this box.'],
+    [
+      {
+        label: 'Use this',
+        primary: true,
+        run: async () => {
+          if (await usePasted(box.value)) return;
+          notice('That was not a setup link or a key', [
+            'A setup link starts with https and contains #setup=. A key from ' + SERVICE.name +
+              ' is one long word, usually starting with ' + KEY_PREFIX + '.',
+            'Copy the whole thing and try again.',
+          ]);
+        },
       },
-    },
-    { label: 'Cancel' },
-  ], box);
+      { label: 'Cancel' },
+    ],
+    box
+  );
 }
 
 function afterSetup() {
   closeAll();
   renderEmpty();
   if (iOS && !installed) {
-    notice('This phone is set up', [
+    notice('Captions is set up', [
       'One more step: put Captions on the Home Screen.',
       'Tap the Share button in Safari (the square with an arrow), then “Add to Home Screen”. After that, open Captions from its icon.',
     ]);
   } else {
-    notice('This phone is set up', ['Tap Start listening whenever you are ready.']);
+    notice('Captions is set up', ['Tap Start listening whenever you are ready.']);
   }
 }
 

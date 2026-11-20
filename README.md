@@ -49,21 +49,22 @@ So expect a round of fixes after the first real try.
 
 ## Step 2: try it on a computer
 
-Open the app's address in Chrome or Edge, go to **Menu > Setup**, paste the key, press
-**Test key**, close Setup and press **Start listening**. Talk, or play a recording of a few
-people talking. This is the quickest way to judge accuracy before involving the phones.
+Open the app's address in Chrome or Edge and press **Paste setup link or key** (or go to
+**Menu > Setup** and paste the key into **Service key**). The app checks the key with
+ElevenLabs and says whether it works. Then press **Start listening**. Talk, or play a recording
+of a few people talking. This is the quickest way to judge accuracy before involving the phones.
 
 "See a demonstration" (in Setup) plays a made-up conversation with no key and no microphone.
 
 ## Step 3: set up each iPhone
 
-1. On your own device, open the app, enter the key in **Setup**, then press
-   **Send these settings to another phone** and send the link by text message.
-   The link contains the key, so treat it like a password.
-2. On the iPhone, tap the link. It opens in Safari and says the phone is set up.
+1. On your own device, open the app with the key already working, go to **Menu > Setup** and
+   press **Send these settings to another phone**. Choose **Email it**, **Text message** or
+   **Copy the link**. The link contains the key, so treat it like a password.
+2. On the iPhone, tap the link. It opens in Safari and says Captions is set up.
 3. Still in Safari, tap **Share**, then **Add to Home Screen**.
 4. Open **Captions** from the Home Screen. If it does not already know its settings, tap
-   **Paste setup code** and paste the link you sent.
+   **Paste setup link or key** and paste the link you sent.
 5. Tap **Start listening** and allow the microphone.
 
 ## Using it

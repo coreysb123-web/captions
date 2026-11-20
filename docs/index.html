@@ -194,10 +194,28 @@
     <h3>Other phones</h3>
     <div class="stack">
       <button class="btn" id="shareSetup" type="button">Send these settings to another phone</button>
-      <button class="btn" id="pasteSetup" type="button">Paste a setup code</button>
+      <button class="btn" id="pasteSetup" type="button">Paste a setup link or key</button>
       <button class="btn" id="showDemo" type="button">See a demonstration</button>
     </div>
     <p class="hint" id="version"></p>
+  </div>
+</dialog>
+
+<dialog id="send" aria-labelledby="sendTitle">
+  <div class="sheet-head">
+    <h2 id="sendTitle">Set up another phone</h2>
+    <button class="btn small" type="button" data-close>Done</button>
+  </div>
+  <div class="sheet-body">
+    <p>Send this link to the other phone. Opening it there sets Captions up. The link contains your service key, so send it only to people you trust.</p>
+    <textarea id="sendLink" class="linkbox" readonly rows="4" aria-label="Setup link"></textarea>
+    <div class="stack" style="margin-top:12px">
+      <a class="btn primary" id="sendEmail">Email it</a>
+      <a class="btn" id="sendText">Text message</a>
+      <button class="btn" id="sendCopy" type="button">Copy the link</button>
+      <button class="btn" id="sendShare" type="button">Share another way</button>
+    </div>
+    <p class="hint" id="sendResult" role="status"></p>
   </div>
 </dialog>
 

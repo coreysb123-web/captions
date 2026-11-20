@@ -79,14 +79,43 @@ function problem(code, message) {
   return { code, message: message || '' };
 }
 
-async function describe(response) {
+/**
+ * Works out what a refusal means. The service describes its errors in the reply's body
+ * ({ detail: { type, code, message } }), and that is more reliable than the HTTP status:
+ * a wrong key of the right shape, for example, comes back as 400 rather than 401.
+ *   auth   the key is wrong, disabled, or lacks permission      (stop and say so)
+ *   quota  the account has no credit or allowance left          (stop and say so)
+ *   setup  the request itself was rejected                      (stop and say so)
+ *   busy   too many requests just now                           (try again shortly)
+ *   server the service is having trouble                        (try again shortly)
+ */
+async function refusal(response) {
+  let detail = null;
   try {
     const body = await response.json();
-    const d = body && body.detail;
-    if (typeof d === 'string') return d;
-    if (d && typeof d.message === 'string') return d.message;
+    detail = body && body.detail;
   } catch (e) {}
-  return 'The service answered with error ' + response.status + '.';
+  const status = response.status;
+  const type = detail && typeof detail === 'object' ? String(detail.type || '') : '';
+  const code = detail && typeof detail === 'object' ? String(detail.code || detail.status || '') : '';
+  let message = '';
+  if (typeof detail === 'string') message = detail;
+  else if (detail && typeof detail.message === 'string') message = detail.message;
+  if (!message) message = 'The service answered with error ' + status + '.';
+
+  let kind;
+  if (type === 'payment_required' || status === 402 || /quota|insufficient_credits|subscription/.test(code)) kind = 'quota';
+  else if (
+    type === 'authentication_error' ||
+    type === 'authorization_error' ||
+    status === 401 ||
+    status === 403 ||
+    /api_key|unauthorized|permission/.test(code)
+  ) kind = 'auth';
+  else if (type === 'rate_limit_error' || status === 429) kind = 'busy';
+  else if (status >= 500) kind = 'server';
+  else kind = 'setup';
+  return problem(kind, message);
 }
 
 async function mintToken(key, signal) {
@@ -96,9 +125,7 @@ async function mintToken(key, signal) {
   } catch (e) {
     throw problem('network', 'Could not reach the speech service.');
   }
-  if (response.status === 401 || response.status === 403) throw problem('auth', await describe(response));
-  if (response.status === 429) throw problem('busy', await describe(response));
-  if (!response.ok) throw problem('server', await describe(response));
+  if (!response.ok) throw await refusal(response);
   let data = null;
   try {
     data = await response.json();
@@ -109,16 +136,32 @@ async function mintToken(key, signal) {
 
 /** Checks that a key is accepted, without opening an audio connection (so no usage is billed). */
 export async function testKey(key) {
-  if (!key) return { ok: false, message: 'No key entered.' };
+  if (!key) return { ok: false, code: 'none', message: 'No key entered.' };
+  const aborter = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = setTimeout(() => aborter && aborter.abort(), 12000);
   try {
-    await mintToken(key);
-    return { ok: true, message: 'The key works.' };
+    await mintToken(key, aborter ? aborter.signal : undefined);
+    return { ok: true, code: 'ok', message: 'The key works.', said: '' };
   } catch (e) {
+    const said = e.message || '';
     if (e.code === 'auth') {
-      return { ok: false, message: 'The key was not accepted. ' + e.message };
+      return { ok: false, code: 'auth', said, message: 'The key was not accepted. ' + SERVICE.name + ' said: “' + said + '”' };
     }
-    return { ok: false, message: e.message || 'Could not check the key.' };
+    if (e.code === 'quota') {
+      return { ok: false, code: 'quota', said, message: 'The key is right, but the account has no allowance left. ' + SERVICE.name + ' said: “' + said + '”' };
+    }
+    return { ok: false, code: e.code || 'network', said, message: said || 'Could not check the key.' };
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+/** The service's keys begin with this. */
+export const KEY_PREFIX = 'sk_';
+
+/** One unbroken run of letters, digits, _ or -: the shape of a service key. */
+export function looksLikeKey(text) {
+  return /^[A-Za-z0-9_-]{20,200}$/.test(text || '');
 }
 
 function toBase64(bytes) {
