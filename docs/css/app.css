@@ -277,7 +277,7 @@ button.who:active {
 
 .empty {
   max-width: 30em;
-  margin: 6vh auto 0;
+  margin: clamp(0px, 4vh, 44px) auto 0; /* less space above on short screens */
   font-size: 22px;
   line-height: 1.4;
   font-weight: 500;
@@ -511,7 +511,7 @@ dialog::backdrop {
 }
 
 .sheet-body h3 {
-  margin: 22px 0 8px;
+  margin: 16px 0 8px;
   font-size: 18px;
   font-weight: 800;
   color: var(--fg-dim);
@@ -602,7 +602,7 @@ a.btn {
 
 .sizer .btn {
   flex: none;
-  width: 84px;
+  width: 76px;
 }
 
 .sizer output {
@@ -759,6 +759,41 @@ textarea {
 
 .sheet-foot > * {
   flex: 1;
+}
+
+.hint a {
+  color: var(--fg);
+}
+
+/* Phone lying on its side: every bit of height counts, so sheets run nearly edge to
+   edge with a slimmer heading. (Kept down here so it overrides the rules above.) */
+@media (max-height: 480px) and (orientation: landscape) {
+  dialog {
+    width: min(700px, calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+    max-height: calc(100vh - 8px);
+    max-height: calc(100dvh - 8px);
+    margin-top: 4px;
+  }
+  .sheet-head {
+    padding: 8px 14px 6px;
+  }
+  .sheet-head h2 {
+    font-size: 22px;
+  }
+  .sheet-head .btn.small {
+    min-height: 42px;
+  }
+  .sheet-body {
+    max-height: calc(100vh - 72px);
+    max-height: calc(100dvh - 72px);
+  }
+  #saved .sheet-body {
+    max-height: calc(100vh - 150px);
+    max-height: calc(100dvh - 150px);
+  }
+  .sheet-foot .btn {
+    min-height: 48px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -26,6 +26,9 @@ Tested on a computer, in a browser at phone size:
 
 - The screens, text sizes, light and dark colours, sideways layout, naming speakers, saved
   conversations, the setup link.
+- The layout at several iPhone sizes, upright and sideways, in a test browser built on
+  Safari's engine. That is the current engine on Windows: close to an iPhone, not the same
+  as one, and it does not show how older iOS versions behave.
 - The audio conversion (48 kHz and other microphone rates down to 16 kHz), measured.
 - Dropped connections and pause/resume: no words lost or repeated, names stay on the right
   people. Tested against a stand-in for the speech service built from its documentation.
@@ -103,6 +106,7 @@ of a few people talking. This is the quickest way to judge accuracy before invol
 | "Reconnecting..." for a long time | Check the phone's connection. If it says "Still trying to connect", tap **Restart**; the words on screen are kept. |
 | "Mic paused" | A call or another app took the microphone. Tap **Tap to continue**. |
 | Captions are poor | Move the phone closer, try the other Microphone style, add family names to "Names and unusual words". |
+| Something looks wrong on the screen | Open **Menu > Setup**, scroll to the bottom and tap **Open the display check** (or go to the app's address followed by `check.html`). Tap **Copy the results** and send them to whoever looks after Captions. It reports how that phone lays the app out; it contains no key and nothing personal. |
 
 ## How it is published
 
@@ -140,8 +144,21 @@ Plain HTML, CSS and JavaScript in `docs/`, no build tools.
 | `js/store.js`, `js/history.js` | Settings, setup codes, saved conversations. |
 | `js/wake.js` | Keeps the screen on. |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Home Screen install and offline start-up. |
+| `check.html` | The display check: measures how a phone lays the app out, for diagnosing layout problems. |
 
 `serve.py` (outside `docs/`) is only for previewing on a computer.
+
+### Seeing it the way Safari draws it
+
+iPhones use Safari's engine (WebKit), which sometimes lays things out differently from Chrome
+or Edge. `tools/webkit_check.py` opens the app in a WebKit test browser at iPhone sizes, saves
+a picture of every screen and popup, and prints their measurements. It needs Python with the
+`playwright` package and its WebKit browser (`python -m playwright install webkit`). With the
+preview running:
+
+```powershell
+python tools/webkit_check.py http://localhost:8123/ out now - "iPhone 13" 375x548 "iPhone 13 landscape"
+```
 
 Other services considered (November 2026): AssemblyAI scored best in its own published test of
 live speaker labelling and gives $50 of free credit, but a phone cannot connect to it without a

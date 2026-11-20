@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Captions display check</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    /* This page scrolls like an ordinary page, unlike the app itself. */
+    html, body { height: auto; }
+    body {
+      overflow: auto;
+      padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+      font-size: 20px;
+      line-height: 1.4;
+    }
+    h1 { margin: 0 0 10px; font-size: 28px; line-height: 1.15; }
+    p { margin: 0 0 14px; }
+    ol { margin: 0 0 16px; padding-left: 1.3em; }
+    li { margin-bottom: 6px; }
+    #out {
+      margin: 18px 0 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--surface);
+      font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Display check</h1>
+<p>This measures how this phone draws Captions, to help put layout problems right. The page sends nothing anywhere, and the results contain no key and nothing personal.</p>
+<ol>
+  <li>Tap <b>Copy the results</b>.</li>
+  <li>Paste them into a message to whoever looks after Captions for you.</li>
+</ol>
+<div class="stack">
+  <button class="btn primary" id="copy" type="button">Copy the results</button>
+  <a class="btn" href="./">Back to Captions</a>
+</div>
+<p class="hint" id="said" role="status"></p>
+<pre id="out">Measuring&hellip;</pre>
+
+<script>
+/* Plain old JavaScript on purpose: this page has to run on phones too old for the app. */
+(function () {
+  var lines = [];
+  function add(key, value) { lines.push(key + ': ' + value); }
+  function round(n) { return Math.round(n * 10) / 10; }
+
+  /* What a CSS length comes to on this phone, in pixels. */
+  function px(css) {
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;height:' + css;
+    document.body.appendChild(d);
+    var h = d.getBoundingClientRect().height;
+    document.body.removeChild(d);
+    return round(h);
+  }
+  function safe(side) {
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;padding-top:env(safe-area-inset-' + side + ', 0px)';
+    document.body.appendChild(d);
+    var v = parseFloat(getComputedStyle(d).paddingTop) || 0;
+    document.body.removeChild(d);
+    return round(v);
+  }
+  function box(el) {
+    var r = el.getBoundingClientRect();
+    return Math.round(r.width) + 'x' + Math.round(r.height) + ' at ' + Math.round(r.left) + ',' + Math.round(r.top);
+  }
+  function supports(prop, value) {
+    return window.CSS && CSS.supports && CSS.supports(prop, value) ? 'yes' : 'NO';
+  }
+
+  /* Opens a real sheet like the app's, measures it, and closes it again before it is drawn. */
+  function sheet(label, bodyStyle, contentHeight) {
+    if (!window.HTMLDialogElement || !HTMLDialogElement.prototype.showModal) return label + ': this browser has no dialog support';
+    var d = document.createElement('dialog');
+    d.style.visibility = 'hidden';
+    d.innerHTML =
+      '<div class="sheet-head"><h2>Test</h2><button class="btn small" type="button">Done</button></div>' +
+      '<div class="sheet-body" style="' + bodyStyle + '"><div style="height:' + contentHeight + 'px"></div></div>';
+    document.body.appendChild(d);
+    var text;
+    try {
+      d.showModal();
+      var r = d.getBoundingClientRect();
+      var b = d.querySelector('.sheet-body').getBoundingClientRect();
+      text = label + ': sheet ' + Math.round(r.height) + ' high, ' + Math.round(r.width) + ' wide, top ' + Math.round(r.top) +
+        ', gap below ' + Math.round(window.innerHeight - r.bottom) + '; body ' + Math.round(b.height) + ' for content ' + (contentHeight + 22);
+      d.close();
+    } catch (e) {
+      text = label + ': failed (' + e + ')';
+    }
+    document.body.removeChild(d);
+    return text;
+  }
+
+  function measure() {
+    lines = [];
+    add('CAPTIONS DISPLAY CHECK', 'v1');
+    add('when', new Date().toISOString());
+    add('address', location.origin + location.pathname);
+    add('browser', navigator.userAgent);
+    var standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    add('opened as', standalone ? 'Home Screen app' : 'browser tab');
+    add('window', window.innerWidth + ' x ' + window.innerHeight);
+    add('document', document.documentElement.clientWidth + ' x ' + document.documentElement.clientHeight);
+    var vv = window.visualViewport;
+    add('visual viewport', vv ? Math.round(vv.width) + ' x ' + Math.round(vv.height) + ', zoom ' + round(vv.scale) + ', offset top ' + Math.round(vv.offsetTop) : 'not available');
+    add('screen', screen.width + ' x ' + screen.height + ', pixel ratio ' + window.devicePixelRatio);
+    add('held', window.innerWidth > window.innerHeight ? 'sideways' : 'upright');
+    add('100vh / svh / lvh / dvh', [px('100vh'), px('100svh'), px('100lvh'), px('100dvh')].join(' / '));
+    add('safe areas top / right / bottom / left', [safe('top'), safe('right'), safe('bottom'), safe('left')].join(' / '));
+
+    var full = document.createElement('div');
+    full.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;visibility:hidden;pointer-events:none';
+    document.body.appendChild(full);
+    add('full-screen box (top/right/bottom/left 0)', box(full));
+    document.body.removeChild(full);
+
+    var t = document.createElement('span');
+    t.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-size:20px';
+    t.textContent = 'The quick brown fox jumps over the lazy dog';
+    document.body.appendChild(t);
+    add('text', 'asked for 20px, got ' + getComputedStyle(t).fontSize + ', sample is ' + Math.round(t.getBoundingClientRect().width) + ' wide, font ' + getComputedStyle(t).fontFamily.split(',')[0]);
+    document.body.removeChild(t);
+    var root = getComputedStyle(document.documentElement);
+    add('root text', root.fontSize + ', size adjust ' + (root.webkitTextSizeAdjust || root.textSizeAdjust || 'unknown'));
+
+    add('supports', 'dvh ' + supports('height', '100dvh') + ', inset ' + supports('inset', '0') + ', gap ' + supports('gap', '1px') +
+      ', clamp ' + supports('width', 'clamp(1px, 2px, 3px)') + ', anywhere ' + supports('overflow-wrap', 'anywhere') +
+      ', dialog ' + (window.HTMLDialogElement && HTMLDialogElement.prototype.showModal ? 'yes' : 'NO') +
+      ', audio worklet ' + (window.AudioWorkletNode ? 'yes' : 'NO') +
+      ', wake lock ' + ('wakeLock' in navigator ? 'yes' : 'NO') +
+      ', microphone ' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'yes' : 'NO') +
+      ', service worker ' + ('serviceWorker' in navigator ? 'yes' : 'NO'));
+
+    /* The app's own frame, rebuilt out of sight, to see where its parts land. */
+    var app = document.createElement('div');
+    app.className = 'app';
+    app.style.visibility = 'hidden';
+    app.style.pointerEvents = 'none';
+    app.innerHTML =
+      '<header class="topbar"><button class="tool">A−</button><button class="tool">A+</button>' +
+      '<div class="status"><span class="dot"></span><span>Reconnecting…</span></div><button class="tool">Menu</button></header>' +
+      '<div class="stage"><main class="transcript"></main></div>' +
+      '<footer class="bottombar"><div class="meter"><i></i></div><button class="mainbtn">Start listening</button></footer>';
+    document.body.appendChild(app);
+    var status = app.querySelector('.status span:last-child');
+    add('app frame', box(app));
+    add('app top bar', box(app.querySelector('.topbar')) + (status.scrollWidth > status.clientWidth + 1 ? ' (status text cut short)' : ''));
+    add('app words area', box(app.querySelector('.stage')));
+    add('app bottom bar', box(app.querySelector('.bottombar')));
+    add('app main button', box(app.querySelector('.mainbtn')) + ', ends ' + Math.round(window.innerHeight - app.querySelector('.mainbtn').getBoundingClientRect().bottom) + ' above the window bottom');
+    document.body.removeChild(app);
+
+    add('sheet as shipped, long', sheet('', '', 1400).slice(2));
+    add('sheet as shipped, short', sheet('', '', 120).slice(2));
+    add('sheet old style, long', sheet('', 'flex:1 1 0%;max-height:none', 1400).slice(2));
+    add('sheet old style, short', sheet('', 'flex:1 1 0%;max-height:none', 120).slice(2));
+    add('sheet flex only, long', sheet('', 'max-height:none', 1400).slice(2));
+
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem('captions.settings') || '{}'); } catch (e) { saved = { unreadable: true }; }
+    add('app settings', 'text size ' + (saved.fontSize || 'default') + ', colours ' + (saved.theme || 'default') +
+      ', microphone style ' + (saved.tuning || 'default') + ', language ' + (saved.language === undefined ? 'default' : (saved.language || 'auto')) +
+      ', key saved ' + (saved.engineKey ? 'yes' : 'no'));
+    return lines.join('\n');
+  }
+
+  var out = document.getElementById('out');
+  var said = document.getElementById('said');
+  var results = '';
+
+  function show() {
+    try { results = measure(); } catch (e) { results = lines.join('\n') + '\nstopped early: ' + e; }
+    out.textContent = results;
+  }
+
+  function finish() {
+    show();
+    /* Which saved copy of the app this phone holds. */
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (keys) {
+        results += '\nsaved app copies: ' + (keys.length ? keys.join(', ') : 'none');
+        out.textContent = results;
+      }, function () {});
+    }
+  }
+
+  document.getElementById('copy').addEventListener('click', function () {
+    function ok() { said.textContent = 'Copied. Now paste it into your message.'; }
+    function manual() {
+      var box = document.createElement('textarea');
+      box.value = results;
+      box.setAttribute('readonly', '');
+      box.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;font-size:16px';
+      document.body.appendChild(box);
+      box.focus();
+      box.select();
+      var done = false;
+      try { done = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(box);
+      if (done) ok();
+      else said.textContent = 'Could not copy by itself. Press and hold the grey box below, choose Select All, then Copy. Or take a screenshot of it.';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(results).then(ok, manual);
+    else manual();
+  });
+
+  window.addEventListener('resize', show);
+  if (document.readyState === 'complete') finish();
+  else window.addEventListener('load', finish);
+})();
+</script>
+</body>
+</html>

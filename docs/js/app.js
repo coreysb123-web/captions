@@ -26,7 +26,7 @@ import {
 import { DemoEngine, DemoSource } from './engines/demo.js';
 import * as history from './history.js';
 
-const VERSION = '1.2';
+const VERSION = '1.3';
 const SIZES = [20, 24, 28, 32, 38, 44, 52, 60];
 const RESUME_KEY = 'captions.resume';
 
@@ -283,13 +283,13 @@ function renderEmpty() {
   } else {
     el.innerHTML =
       '<h1>Almost ready</h1>' +
-      '<p>Captions needs setting up before it can caption real conversations. ' +
-      'Paste the setup link you were sent, or your ' + SERVICE.name + ' key.</p>' +
+      '<p>Paste the setup link you were sent, or your ' + SERVICE.name + ' key.</p>' +
       '<div class="stack">' +
       '<button class="btn primary" type="button" data-do="paste">Paste setup link or key</button>' +
-      '<button class="btn" type="button" data-do="demo">See a demonstration</button>' +
-      '<button class="btn" type="button" data-do="setup">Enter the settings by hand</button>' +
-      '</div>';
+      '<div class="row">' +
+      '<button class="btn" type="button" data-do="demo">See a demo</button>' +
+      '<button class="btn" type="button" data-do="setup">Open Setup</button>' +
+      '</div></div>';
   }
 }
 
