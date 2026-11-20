@@ -26,7 +26,7 @@ import {
 import { DemoEngine, DemoSource } from './engines/demo.js';
 import * as history from './history.js';
 
-const VERSION = '1.1';
+const VERSION = '1.2';
 const SIZES = [20, 24, 28, 32, 38, 44, 52, 60];
 const RESUME_KEY = 'captions.resume';
 

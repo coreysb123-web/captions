@@ -99,6 +99,16 @@ button {
   -webkit-appearance: none;
   appearance: none;
   touch-action: manipulation;
+  /* A long press on a button should press it, not select its label or pop up a menu. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+a.btn {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button:focus-visible,
@@ -245,6 +255,7 @@ button.who:active {
 
 .turn p {
   margin: 0 0 0.4em;
+  word-break: break-word; /* for iPhones too old to know the next line */
   overflow-wrap: anywhere;
 }
 
@@ -473,13 +484,26 @@ dialog::backdrop {
 }
 
 .sheet-body {
-  flex: 1;
+  /* Sized by its content; when the sheet reaches full height it shrinks and scrolls.
+     This must NOT be "flex: 1": a sheet has a maximum height but no fixed one, and
+     Safari then gives a "flex: 1" body no height at all, squashing the sheet down to
+     its heading. The max-height below is a second line of defence that does not rely
+     on the flex layout: about 116px is the sheet's margin plus its heading. */
+  flex: 0 1 auto;
   min-height: 0;
+  max-height: calc(100vh - 116px);
+  max-height: calc(100dvh - 116px - env(safe-area-inset-top, 0px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 4px 16px 18px;
   font-size: 19px;
   line-height: 1.4;
+}
+
+/* This sheet also has a row of buttons at the bottom. */
+#saved .sheet-body {
+  max-height: calc(100vh - 206px);
+  max-height: calc(100dvh - 206px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
 }
 
 .sheet-body > p {
@@ -524,7 +548,7 @@ a.btn {
 .linkbox {
   min-height: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 15px;
+  font-size: 16px; /* never below 16px: iPhones zoom the whole page into smaller text boxes */
   line-height: 1.35;
   word-break: break-all;
   resize: none;
@@ -629,6 +653,19 @@ select {
   color: var(--fg);
   font: inherit;
   font-size: 19px;
+  /* Draw these ourselves, so they look the same on an iPhone as everywhere else. */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* With the phone's own drawing switched off, a drop-down needs its arrow put back. */
+select {
+  padding-right: 46px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10' viewBox='0 0 16 10'%3E%3Cpath d='M2 2l6 6 6-6' fill='none' stroke='%238a8f9a' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  background-size: 16px 10px;
+  text-overflow: ellipsis;
 }
 
 textarea {

@@ -4,7 +4,7 @@
 // Network first: when online, the newest version is always used, so updating the
 // site updates every phone the next time the app is opened.
 
-const CACHE = 'captions-v2';
+const CACHE = 'captions-v3';
 const SHELL = [
   './',
   'index.html',
