@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "captions",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["serve.py", "8123"],
+      "port": 8123
+    },
+    {
+      "name": "captions-in-subfolder",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["serve.py", "8124", "."],
+      "port": 8124
+    }
+  ]
+}

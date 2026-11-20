@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Captions</title>
+  <meta name="description" content="Live captions in large print that show who is speaking.">
+  <meta name="theme-color" content="#101114">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Captions">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Apply the saved look before anything is drawn, so there is no flash.
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('captions.settings') || '{}');
+        var theme = s.theme || 'auto';
+        if (theme === 'auto') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        if (s.fontSize) document.documentElement.style.setProperty('--fs', s.fontSize + 'px');
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+<div class="app" id="app" data-state="idle">
+  <header class="topbar">
+    <button class="tool" id="smaller" type="button" aria-label="Smaller text">A&minus;</button>
+    <button class="tool" id="bigger" type="button" aria-label="Bigger text">A+</button>
+    <div class="status" role="status"><span class="dot"></span><span id="statusText">Ready</span></div>
+    <button class="tool" id="openMenu" type="button">Menu</button>
+  </header>
+
+  <div class="stage">
+    <main class="transcript" id="scroller">
+      <div class="empty" id="empty"></div>
+      <div id="turns"></div>
+    </main>
+    <div class="note" id="note" hidden>
+      <span id="noteText"></span>
+      <button type="button" id="noteAction"></button>
+    </div>
+    <button class="latest" id="latest" type="button" hidden>&darr; Latest</button>
+  </div>
+
+  <footer class="bottombar">
+    <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+    <button class="mainbtn" id="main" type="button">Start listening</button>
+  </footer>
+</div>
+
+<dialog id="menu" aria-labelledby="menuTitle">
+  <div class="sheet-head">
+    <h2 id="menuTitle">Menu</h2>
+    <button class="btn small" type="button" data-close>Done</button>
+  </div>
+  <div class="sheet-body">
+    <h3>Text size</h3>
+    <div class="sizer">
+      <button class="btn" id="menuSmaller" type="button" aria-label="Smaller text">A&minus;</button>
+      <output id="sizeSample">Sample</output>
+      <button class="btn" id="menuBigger" type="button" aria-label="Bigger text">A+</button>
+    </div>
+    <h3>Colours</h3>
+    <div class="row" id="themes">
+      <button class="btn" type="button" data-theme-choice="auto">Auto</button>
+      <button class="btn" type="button" data-theme-choice="light">Light</button>
+      <button class="btn" type="button" data-theme-choice="dark">Dark</button>
+    </div>
+    <h3>Conversation</h3>
+    <div class="stack">
+      <button class="btn" id="newConversation" type="button">Start a new conversation</button>
+      <button class="btn" id="openHistory" type="button">Past conversations</button>
+      <button class="btn" id="openPeople" type="button">People&rsquo;s names</button>
+      <button class="btn" id="openSetup" type="button">Setup</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="who" aria-labelledby="whoTitle">
+  <div class="sheet-head">
+    <h2 id="whoTitle">Who is this?</h2>
+    <button class="btn small" type="button" data-close>Cancel</button>
+  </div>
+  <div class="sheet-body">
+    <p class="quote" id="whoQuote"></p>
+    <div class="names" id="whoNames"></div>
+    <label class="field" for="whoInput">Someone else</label>
+    <div class="row">
+      <input type="text" id="whoInput" autocomplete="off" autocapitalize="words" spellcheck="false"
+             enterkeyhint="done" placeholder="Type their name">
+      <button class="btn small primary fit" id="whoSave" type="button">Save</button>
+    </div>
+    <button class="btn danger" id="whoClear" type="button" style="margin-top:16px" hidden>Remove this name</button>
+  </div>
+</dialog>
+
+<dialog id="history" aria-labelledby="historyTitle">
+  <div class="sheet-head">
+    <h2 id="historyTitle">Past conversations</h2>
+    <button class="btn small" type="button" data-close>Done</button>
+  </div>
+  <div class="sheet-body">
+    <p id="historyEmpty" hidden>Nothing saved yet. Conversations are kept here, on this phone only, after you use Start listening.</p>
+    <div class="stack" id="historyList"></div>
+  </div>
+</dialog>
+
+<dialog id="saved" aria-labelledby="savedTitle">
+  <div class="sheet-head">
+    <h2 id="savedTitle"></h2>
+    <button class="btn small" type="button" data-close>Back</button>
+  </div>
+  <div class="sheet-body">
+    <div class="saved" id="savedBody"></div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn" id="savedShare" type="button">Share</button>
+    <button class="btn danger" id="savedDelete" type="button">Delete</button>
+  </div>
+</dialog>
+
+<dialog id="people" aria-labelledby="peopleTitle">
+  <div class="sheet-head">
+    <h2 id="peopleTitle">People&rsquo;s names</h2>
+    <button class="btn small" type="button" data-close>Done</button>
+  </div>
+  <div class="sheet-body">
+    <p>These names appear as one-tap buttons when you say who a speaker is.</p>
+    <ul class="list" id="peopleList"></ul>
+    <label class="field" for="personInput">Add a name</label>
+    <div class="row">
+      <input type="text" id="personInput" autocomplete="off" autocapitalize="words" spellcheck="false"
+             enterkeyhint="done" placeholder="For example, Margaret">
+      <button class="btn small primary fit" id="personAdd" type="button">Add</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="setup" aria-labelledby="setupTitle">
+  <div class="sheet-head">
+    <h2 id="setupTitle">Setup</h2>
+    <button class="btn small" type="button" data-close>Done</button>
+  </div>
+  <div class="sheet-body">
+    <p id="setupIntro"></p>
+
+    <label class="field" for="keyInput">Service key</label>
+    <input type="password" id="keyInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <p class="hint" id="keyHint"></p>
+    <div class="row" style="margin-top:10px">
+      <button class="btn small" id="keyShow" type="button">Show key</button>
+      <button class="btn small" id="keyTest" type="button">Test key</button>
+    </div>
+    <p class="hint" id="keyResult" role="status"></p>
+
+    <label class="field" for="termsInput">Names and unusual words</label>
+    <textarea id="termsInput" autocomplete="off" autocapitalize="words" spellcheck="false"
+              placeholder="One per line"></textarea>
+    <p class="hint" id="termsHint"></p>
+
+    <label class="field" for="langInput">Language</label>
+    <select id="langInput"></select>
+
+    <label class="field" for="tuningInput">Microphone style</label>
+    <select id="tuningInput">
+      <option value="room">Room: hear the whole table</option>
+      <option value="close">Close-up: one person near the phone</option>
+    </select>
+    <p class="hint">Phones differ. Try both in a real room and keep whichever captions better.</p>
+
+    <label class="field" for="micInput">Microphone</label>
+    <select id="micInput"><option value="">Automatic</option></select>
+    <p class="hint">If hearing aids or earbuds are connected, the phone may listen through them. Choose the phone&rsquo;s own microphone here if captions get worse when they are connected.</p>
+
+    <label class="field" for="pauseInput">Pause by itself when nobody speaks for</label>
+    <select id="pauseInput">
+      <option value="10">10 minutes</option>
+      <option value="20">20 minutes</option>
+      <option value="30">30 minutes</option>
+      <option value="60">1 hour</option>
+      <option value="0">Never</option>
+    </select>
+
+    <label class="check"><input type="checkbox" id="historyInput"> Save conversations on this phone</label>
+
+    <h3>Other phones</h3>
+    <div class="stack">
+      <button class="btn" id="shareSetup" type="button">Send these settings to another phone</button>
+      <button class="btn" id="pasteSetup" type="button">Paste a setup code</button>
+      <button class="btn" id="showDemo" type="button">See a demonstration</button>
+    </div>
+    <p class="hint" id="version"></p>
+  </div>
+</dialog>
+
+<dialog id="notice" aria-labelledby="noticeTitle">
+  <div class="sheet-head"><h2 id="noticeTitle"></h2></div>
+  <div class="sheet-body">
+    <div id="noticeBody"></div>
+    <div class="stack" id="noticeActions" style="margin-top:18px"></div>
+  </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
