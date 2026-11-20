@@ -17,8 +17,25 @@ which the phone talks to directly. There is no server of your own to run.
   tier. Confirm in your own account how often that renews.
 - Optional: filling in "Names and unusual words" adds $0.08 per hour.
 
+- On a paid ElevenLabs plan, listening is taken from the plan's monthly credits rather than
+  charged on top. Nothing extra is charged when those run out unless the account has Top Up
+  funds, Auto Top Up, or the older "usage based billing" switched on.
+
 Silence is billed like speech, so the app pauses by itself after 20 minutes with no words
 (changeable in Setup).
+
+## Keeping the cost in check
+
+- **The app's own meter.** Menu > Setup shows how long this phone has listened this month and
+  roughly what that came to. It counts the audio actually sent to the service, which is what is
+  billed. It is that phone's own tally; the ElevenLabs account has the real total.
+- **A monthly limit per phone.** "Stop for the rest of the month after" in Setup stops listening
+  once the phone has used that many hours, until the 1st of the next month. The limit travels
+  in the setup link, so choose it before sending the link to another phone.
+- **A limit on the key itself.** In ElevenLabs, give the key that other people's phones use its
+  own monthly credit limit, and restrict it to Speech to Text. That limit cannot be got round
+  from a phone, and it covers every phone using that key.
+- The app only listens while it is on screen.
 
 ## What has and has not been tested
 
@@ -142,6 +159,7 @@ Plain HTML, CSS and JavaScript in `docs/`, no build tools.
 | `js/engines/elevenlabs.js` | The connection to the speech service. To try a different service, write another file with the same interface (described at the top of `session.js`). |
 | `js/engines/demo.js` | The made-up conversation used for the demonstration and for testing. |
 | `js/store.js`, `js/history.js` | Settings, setup codes, saved conversations. |
+| `js/usage.js` | The month-by-month tally of listening time behind the meter and the limit. |
 | `js/wake.js` | Keeps the screen on. |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Home Screen install and offline start-up. |
 | `check.html` | The display check: measures how a phone lays the app out, for diagnosing layout problems. |

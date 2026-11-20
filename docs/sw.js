@@ -4,7 +4,7 @@
 // Network first: when online, the newest version is always used, so updating the
 // site updates every phone the next time the app is opened.
 
-const CACHE = 'captions-v4';
+const CACHE = 'captions-v5';
 const SHELL = [
   './',
   'index.html',
@@ -16,6 +16,7 @@ const SHELL = [
   'js/pcm-worklet.js',
   'js/session.js',
   'js/store.js',
+  'js/usage.js',
   'js/view.js',
   'js/wake.js',
   'js/engines/demo.js',

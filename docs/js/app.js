@@ -25,8 +25,17 @@ import {
 } from './engines/elevenlabs.js';
 import { DemoEngine, DemoSource } from './engines/demo.js';
 import * as history from './history.js';
+import {
+  addListening,
+  saveUsage,
+  usedThisMonth,
+  usedLastMonth,
+  costOf,
+  nextReset,
+  asDuration,
+} from './usage.js';
 
-const VERSION = '1.3';
+const VERSION = '1.4';
 const SIZES = [20, 24, 28, 32, 38, 44, 52, 60];
 const RESUME_KEY = 'captions.resume';
 
@@ -43,6 +52,8 @@ let lastWordAt = 0;
 let whoId = null; // speaker being named
 let savedShown = null; // past conversation being read
 let noteKind = '';
+let termsInUse = false; // this listening session uses the "unusual words" extra
+let warnedLow = false; // the "nearly used up" note has been shown
 
 // ---- transcript and session -------------------------------------------------
 
@@ -74,6 +85,7 @@ const session = new Session({
     }
   },
   onFailure: showFailure,
+  onAudio: countListening,
 });
 
 const STATUS = {
@@ -142,8 +154,13 @@ function start() {
     showMicProblem({ code: 'mic-unsupported' });
     return;
   }
+  if (!demo && overLimit()) {
+    showLimitReached();
+    return;
+  }
   if (!conversation) conversation = { id: Date.now(), startedAt: Date.now() };
   lastWordAt = Date.now();
+  termsInUse = usableTerms(termList()).length > 0;
   if (noteKind !== 'demo') hideNote();
   // Must run inside the tap, so the phone lets the microphone start.
   session.start().catch(showMicProblem);
@@ -152,8 +169,59 @@ function start() {
 async function pause() {
   await session.pause();
   saveConversation(true);
+  saveUsage();
   if (demo) endDemo();
   else renderEmpty();
+}
+
+// ---- listening time and the monthly limit -----------------------------------
+//
+// The app counts the audio it sends to the speech service, which is what gets billed.
+// An optional limit (set in Setup, and carried in the setup link) stops listening for
+// the rest of the calendar month once this phone has used that many hours.
+
+function limitMs() {
+  return (Number(settings.monthlyLimitHours) || 0) * 3600000;
+}
+
+function overLimit() {
+  const limit = limitMs();
+  return limit > 0 && usedThisMonth().ms >= limit;
+}
+
+/** Called by the session each time audio has gone to the service. */
+function countListening(ms) {
+  if (demo) return;
+  addListening(ms, termsInUse);
+  const limit = limitMs();
+  if (!limit) return;
+  const left = limit - usedThisMonth().ms;
+  if (left <= 0) {
+    if (session.state !== 'idle' && session.state !== 'finishing') pause().then(showLimitReached);
+  } else if (!warnedLow && left <= Math.min(30 * 60000, limit * 0.1)) {
+    warnedLow = true;
+    const about = left < 90000 ? 'Less than a minute' : 'About ' + asDuration(left);
+    showNote(about + ' of listening left this month.', 'OK', hideNote, 'low');
+  }
+}
+
+function showLimitReached() {
+  if (noteKind === 'low') hideNote();
+  const hours = Number(settings.monthlyLimitHours) || 0;
+  const again = nextReset().toLocaleDateString([], { day: 'numeric', month: 'long' });
+  notice('This month’s listening time is used up', [
+    'Captions is set to stop after ' + hours + ' hours of listening a month on this phone, and that has been reached.',
+    'It starts again on ' + again + '. If it is needed before then, ask the person who set up this phone.',
+  ], [{ label: 'OK', primary: true }, { label: 'Open Setup', run: openSetup }]);
+}
+
+function showUsage() {
+  const cost = (used) => '$' + costOf(used, SERVICE.pricePerHour, SERVICE.extraForTerms).toFixed(2);
+  const now = usedThisMonth();
+  const last = usedLastMonth();
+  let text = 'This month: ' + asDuration(now.ms) + ' of listening, about ' + cost(now) + '.';
+  if (last.ms) text += ' Last month: ' + asDuration(last.ms) + ', about ' + cost(last) + '.';
+  $('usageNow').textContent = text;
 }
 
 function showMicProblem(error) {
@@ -595,9 +663,21 @@ function fillSetupTexts() {
   $('termsHint').textContent =
     'Family names, places, clubs. One per line, up to 50, each 20 letters or fewer. Using this box adds about $' +
     SERVICE.extraForTerms.toFixed(2) + ' an hour; leave it empty to keep the cost lowest.';
+  $('limitHint').textContent =
+    'Counted on this phone from the 1st of each month, at about ' + price + ' an hour. It is this phone’s own ' +
+    'estimate: the ' + SERVICE.name + ' account keeps the real total, across every phone.';
   const languages = $('langInput');
   for (const [code, name] of SERVICE.languages) languages.appendChild(new Option(name, code));
   $('version').textContent = 'Captions ' + VERSION;
+}
+
+/** Shows a value in a drop-down, adding it as a choice if the list does not have it. */
+function selectValue(select, value, label) {
+  select.value = value;
+  if (select.value !== value) {
+    select.appendChild(new Option(label, value));
+    select.value = value;
+  }
 }
 
 async function fillMicrophones() {
@@ -620,6 +700,10 @@ function openSetup() {
   $('tuningInput').value = settings.tuning;
   $('pauseInput').value = String(settings.autoPauseMin);
   $('historyInput').checked = settings.keepHistory;
+  const limit = Number(settings.monthlyLimitHours) || 0;
+  selectValue($('limitInput'), String(limit), limit + ' hours');
+  saveUsage();
+  showUsage();
   fillMicrophones();
   openSheet('setup');
 }
@@ -632,6 +716,8 @@ function keepSetup() {
     $('termsInput').value = settings.terms;
     $('langInput').value = settings.language;
     $('tuningInput').value = settings.tuning;
+    const carried = Number(settings.monthlyLimitHours) || 0;
+    selectValue($('limitInput'), String(carried), carried + ' hours');
     $('keyResult').textContent = 'Setup link applied.';
   }
   settings.engineKey = $('keyInput').value.trim();
@@ -641,6 +727,9 @@ function keepSetup() {
   settings.micId = $('micInput').value;
   settings.autoPauseMin = Number($('pauseInput').value) || 0;
   settings.keepHistory = $('historyInput').checked;
+  const limit = Number($('limitInput').value) || 0;
+  if (limit !== (Number(settings.monthlyLimitHours) || 0)) warnedLow = false;
+  settings.monthlyLimitHours = limit;
   saveSettings();
   renderEmpty();
   const ignored = termList().length - usableTerms(termList()).length;
@@ -650,7 +739,7 @@ function keepSetup() {
   }
 }
 
-for (const id of ['keyInput', 'termsInput', 'langInput', 'tuningInput', 'micInput', 'pauseInput', 'historyInput']) {
+for (const id of ['keyInput', 'termsInput', 'langInput', 'tuningInput', 'micInput', 'pauseInput', 'historyInput', 'limitInput']) {
   $(id).addEventListener('change', keepSetup);
 }
 $('setup').addEventListener('close', keepSetup);
@@ -697,6 +786,10 @@ $('shareSetup').addEventListener('click', () => {
   $('sendText').href = 'sms:?&body=' + encodeURIComponent(message);
   $('sendText').hidden = !(iOS || /Android/i.test(navigator.userAgent));
   $('sendShare').hidden = !navigator.share;
+  const hours = Number(settings.monthlyLimitHours) || 0;
+  $('sendIncludes').textContent =
+    'It carries the key, language, unusual words and names, and ' +
+    (hours ? 'a limit of ' + hours + ' hours of listening a month.' : 'no monthly limit. Set one above in Setup first if you want one.');
   const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   $('sendResult').textContent = local
     ? 'This link points at this computer, so it will not work on a phone. Open Captions at its real address and send the link from there.'
@@ -847,11 +940,15 @@ window.addEventListener('online', () => showState(session.state, null));
 window.addEventListener('offline', () => showState(session.state, null));
 
 // Save little and often, and whenever the app is put away.
-setInterval(() => saveConversation(false), 15000);
+function saveEverything() {
+  saveConversation(false);
+  saveUsage();
+}
+setInterval(saveEverything, 15000);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') saveConversation(false);
+  if (document.visibilityState === 'hidden') saveEverything();
 });
-window.addEventListener('pagehide', () => saveConversation(false));
+window.addEventListener('pagehide', saveEverything);
 
 // Stop by itself if it has been left running with nobody talking.
 setInterval(() => {
@@ -897,5 +994,6 @@ window.captions = {
   view,
   settings,
   startDemo,
+  usedThisMonth,
   dropConnection: () => DemoEngine.current && DemoEngine.current.drop(),
 };

@@ -21,6 +21,7 @@ const DEFAULTS = {
   tuning: 'room', // room | close
   micId: '',
   autoPauseMin: 20, // 0 = never
+  monthlyLimitHours: 0, // stop listening for the month after this many hours; 0 = no limit
   keepHistory: true,
   tipSeen: false,
   appliedCode: '', // the last setup code taken in, so the same link is not re-applied
@@ -103,6 +104,7 @@ export function makeSetupCode() {
     t: settings.terms,
     p: settings.people,
     m: settings.tuning,
+    h: Number(settings.monthlyLimitHours) || 0,
   });
 }
 
@@ -126,6 +128,7 @@ export function applySetupCode(text) {
   if (typeof data.l === 'string') settings.language = data.l;
   if (typeof data.t === 'string') settings.terms = data.t;
   if (data.m === 'room' || data.m === 'close') settings.tuning = data.m;
+  if (typeof data.h === 'number' && data.h >= 0 && data.h <= 1000) settings.monthlyLimitHours = data.h;
   if (Array.isArray(data.p)) for (const name of data.p) if (typeof name === 'string') addPerson(name);
   settings.appliedCode = code;
   saveSettings();

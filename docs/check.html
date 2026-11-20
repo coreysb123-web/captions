@@ -172,6 +172,7 @@
     try { saved = JSON.parse(localStorage.getItem('captions.settings') || '{}'); } catch (e) { saved = { unreadable: true }; }
     add('app settings', 'text size ' + (saved.fontSize || 'default') + ', colours ' + (saved.theme || 'default') +
       ', microphone style ' + (saved.tuning || 'default') + ', language ' + (saved.language === undefined ? 'default' : (saved.language || 'auto')) +
+      ', monthly limit ' + (saved.monthlyLimitHours ? saved.monthlyLimitHours + ' h' : 'none') +
       ', key saved ' + (saved.engineKey ? 'yes' : 'no'));
     return lines.join('\n');
   }

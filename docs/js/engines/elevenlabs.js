@@ -398,8 +398,10 @@ export class ElevenLabsEngine {
         })
       );
     } catch (e) {
-      // The close handler reports the failure.
+      return; // The close handler reports the failure.
     }
+    // This audio is what the service bills for, so tell the app how much just went.
+    if (parts.length) this.emit({ type: 'audio', ms: parts.length * FRAME_MS });
   }
 
   // ---- receiving results ----------------------------------------------------

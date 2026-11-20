@@ -53,7 +53,7 @@ export class Session {
    * onWords     ()                   settled words were added
    * onFailure   ({ code, message })  stopped because of a problem the user must fix
    */
-  constructor({ view, makeEngine, makeSource, onState, onLevel, onWords, onFailure }) {
+  constructor({ view, makeEngine, makeSource, onState, onLevel, onWords, onFailure, onAudio }) {
     this.view = view;
     this.makeEngine = makeEngine;
     this.makeSource = makeSource;
@@ -61,6 +61,7 @@ export class Session {
     this.onLevel = onLevel || noop;
     this.onWords = onWords || noop;
     this.onFailure = onFailure || noop;
+    this.onAudio = onAudio || noop;
 
     this.state = 'idle';
     this.want = false;
@@ -270,6 +271,7 @@ export class Session {
     else if (ev.type === 'close') this._onClose(conn, ev);
     else if (ev.type === 'primed') this._settle(conn);
     else if (ev.type === 'merge') this._onMerge(conn, ev);
+    else if (ev.type === 'audio') this.onAudio(ev.ms);
   }
 
   _onOpen(conn) {

@@ -161,6 +161,20 @@
     </div>
     <p class="hint" id="keyResult" role="status"></p>
 
+    <h3>Listening time on this phone</h3>
+    <p id="usageNow"></p>
+    <label class="field" for="limitInput">Stop for the rest of the month after</label>
+    <select id="limitInput">
+      <option value="0">No limit</option>
+      <option value="5">5 hours</option>
+      <option value="10">10 hours</option>
+      <option value="20">20 hours</option>
+      <option value="30">30 hours</option>
+      <option value="50">50 hours</option>
+      <option value="100">100 hours</option>
+    </select>
+    <p class="hint" id="limitHint"></p>
+
     <label class="field" for="termsInput">Names and unusual words</label>
     <textarea id="termsInput" autocomplete="off" autocapitalize="words" spellcheck="false"
               placeholder="One per line"></textarea>
@@ -209,6 +223,7 @@
   <div class="sheet-body">
     <p>Send this link to the other phone. Opening it there sets Captions up. The link contains your service key, so send it only to people you trust.</p>
     <textarea id="sendLink" class="linkbox" readonly rows="4" aria-label="Setup link"></textarea>
+    <p class="hint" id="sendIncludes"></p>
     <div class="stack" style="margin-top:12px">
       <a class="btn primary" id="sendEmail">Email it</a>
       <a class="btn" id="sendText">Text message</a>
